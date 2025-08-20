@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SafeProjectName.DataAccess;
 
@@ -11,9 +12,11 @@ using SafeProjectName.DataAccess;
 namespace _2508_real_time_leaderboard_api.Migrations
 {
     [DbContext(typeof(LeaderBoardDbContext))]
-    partial class LeaderBoardDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250812225006_AddTokenInfo")]
+    partial class AddTokenInfo
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
