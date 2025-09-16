@@ -8,6 +8,8 @@ public class ScoreConfiguration : IEntityTypeConfiguration<Score>
 {
 	public void Configure(EntityTypeBuilder<Score> entity)
 	{
+		entity.ToTable(tb => tb.IsTemporal());
+
 		entity.HasKey(g => g.ScoreId);
 
 		entity.Property(g => g.Value)
