@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SafeProjectName.DataAccess;
 using SafeProjectName.Interfaces;
-using SafeProjectName.Models;
+using SafeProjectName.Models.DTOs;
 
 namespace SafeProjectName.Controllers;
 
@@ -20,64 +19,25 @@ public class ScoreController : ControllerBase
 		_service = service;
 	}
 
-	[HttpGet(Name = "GetAllScores")]
+	[HttpPut(Name = "SubmitScore")]
 	[Authorize]
-	public async Task<IActionResult> GetAllScores()
+	public async Task<IActionResult> SubmitScore([FromBody] ScoreRequest score)
 	{
-		var result = await _service.GetAllScoresAsync();
-		return Ok(result);
-	}
 
-	[HttpGet("{id}", Name = "GetScoreById")]
-	public async Task<IActionResult> GetScoreById(int id)
-	{
-		var user = await _service.GetScoreByIdAsync(id);
-		if (user == null)
+		try
 		{
-			return NotFound();
-		}
-		return Ok(user);
-	}
+			if (score.Value <= 0)
+			{
+				throw new BadHttpRequestException("Invalid Score Value", new Exception("Score value must be greater than zero"));
+			}
 
-	[HttpPost(Name = "CreateScore")]
-	[Authorize]
-	public async Task<IActionResult> CreateScore([FromBody] Score user)
-	{
-		if (user == null)
+			await _service.SubmitScoreAsync(score);
+			return Ok(new { message = $"Score successfully submited" });
+		}
+		catch (Exception ex)
 		{
-			return BadRequest("Score cannot be null");
+			_logger.LogError(ex, "Invalid score submission parameters");
+			throw;
 		}
-
-		var createdScore = await _service.CreateScoreAsync(user);
-		return CreatedAtAction(nameof(GetScoreById), new { id = createdScore.ScoreId }, createdScore);
-	}
-
-	[HttpPut("{id}", Name = "UpdateScore")]
-	[Authorize]
-	public async Task<IActionResult> UpdateScore(int id, [FromBody] Score user)
-	{
-		if (user == null || id != user.ScoreId)
-		{
-			return BadRequest("Score data is invalid");
-		}
-
-		var updatedScore = await _service.UpdateScoreAsync(id, user);
-		if (updatedScore == null)
-		{
-			return NotFound();
-		}
-		return Ok(updatedScore);
-	}
-
-	[HttpDelete("{id}", Name = "DeleteScore")]
-	[Authorize]
-	public async Task<IActionResult> DeleteScore(int id)
-	{
-		bool result = await _service.DeleteScoreAsync(id);
-		if (!result)
-		{
-			return NotFound();
-		}
-		return NoContent();
 	}
 }

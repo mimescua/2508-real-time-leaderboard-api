@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SafeProjectName.Models;
+using SafeProjectName.Models.Enums;
 
 namespace SafeProjectName.DataAccess.Configurations;
 

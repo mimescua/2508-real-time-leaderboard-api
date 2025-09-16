@@ -1,13 +1,12 @@
-using SafeProjectName.Models;
 using SafeProjectName.Models.DTOs;
 
 namespace SafeProjectName.Interfaces;
 
 public interface IUserService
 {
-	Task<(bool IsSuccess, User? User, string? ErrorMessage)> CreateUserAsync(UserCreateDto dto);
-	Task<IEnumerable<User>> GetAllUsersAsync();
-	Task<User?> GetUserByIdAsync(int id);
-	Task<User?> UpdateUserAsync(int id, UserUpdateDto dto);
-	Task<bool> DeleteUserAsync(int id);
+	Task CreateUserAsync(UserCreateRequest request);
+	Task<IEnumerable<UserResponse>> GetAllUsersAsync();
+	Task<UserResponse> GetUserByIdAsync(int id);
+	Task UpdateUserAsync(int id, UserUpdateRequest request);
+	Task DeleteUserAsync(int id);
 }

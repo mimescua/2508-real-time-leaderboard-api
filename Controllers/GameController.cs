@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SafeProjectName.DataAccess;
+using Microsoft.IdentityModel.Tokens;
 using SafeProjectName.Interfaces;
-using SafeProjectName.Models;
+using SafeProjectName.Models.DTOs;
 
 namespace SafeProjectName.Controllers;
 
@@ -20,65 +20,84 @@ public class GameController : ControllerBase
 		_service = service;
 	}
 
-	[HttpGet(Name = "GetAllGames")]
+	[HttpGet("GetAllGames", Name = "GetAllGames")]
 	[Authorize]
 	public async Task<IActionResult> GetAllGames()
 	{
-		var result = await _service.GetAllGamesAsync();
-		return Ok(result);
+		var games = await _service.GetAllGamesAsync();
+		return Ok(new { message = "Games retrieved successfully", data = games });
 	}
 
 	[HttpGet("{id}", Name = "GetGameById")]
 	[Authorize]
 	public async Task<IActionResult> GetGameById(int id)
 	{
-		var user = await _service.GetGameByIdAsync(id);
-		if (user == null)
-		{
-			return NotFound();
-		}
-		return Ok(user);
+		var game = await _service.GetGameByIdAsync(id);
+		return Ok(new { message = $"Game {id} retrieved successfully", data = game });
 	}
 
-	[HttpPost(Name = "CreateGame")]
+	[HttpPost("CreateGame", Name = "CreateGame")]
 	[Authorize]
-	public async Task<IActionResult> CreateGame([FromBody] Game user)
+	public async Task<IActionResult> CreateGame([FromBody] GameCreateRequest game)
 	{
-		if (user == null)
+		try
 		{
-			return BadRequest("Game cannot be null");
-		}
+			if (string.IsNullOrWhiteSpace(game.Title))
+			{
+				throw new BadHttpRequestException("Invalid Title", new Exception("Title cannot be null or whitespace"));
+			}
 
-		var createdGame = await _service.CreateGameAsync(user);
-		return CreatedAtAction(nameof(GetGameById), new { id = createdGame.GameId }, createdGame);
+			if (game.Genres.IsNullOrEmpty())
+			{
+				throw new BadHttpRequestException("Invalid Genres", new Exception("Genres cannot be null or whitespace"));
+			}
+
+			if (string.IsNullOrWhiteSpace(game.ReleaseDate))
+			{
+				throw new BadHttpRequestException("Invalid Release Date", new Exception("Release date cannot be null or whitespace"));
+			}
+
+			await _service.CreateGameAsync(game);
+			return Ok(new { message = "Game successfully created" });
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Invalid game creation parameters");
+			throw;
+		}
 	}
 
 	[HttpPut("{id}", Name = "UpdateGame")]
 	[Authorize]
-	public async Task<IActionResult> UpdateGame(int id, [FromBody] Game user)
+	public async Task<IActionResult> UpdateGame(int id, [FromBody] GameUpdateRequest game)
 	{
-		if (user == null || id != user.GameId)
+		try
 		{
-			return BadRequest("Game data is invalid");
-		}
+			if (string.IsNullOrWhiteSpace(game.Title)
+			&& string.IsNullOrWhiteSpace(game.About)
+			&& string.IsNullOrWhiteSpace(game.Platforms)
+			&& game.Genres.IsNullOrEmpty()
+			&& string.IsNullOrWhiteSpace(game.ReleaseDate))
+			{
+				throw new BadHttpRequestException("Invalid parameters",
+				new Exception("Title, About, Platforms, Genres and Release Date cannot all be empty"));
+			}
 
-		var updatedGame = await _service.UpdateGameAsync(id, user);
-		if (updatedGame == null)
-		{
-			return NotFound();
+			await _service.UpdateGameAsync(id, game);
+			return Ok(new { message = $"Game {id} successfully updated" });
 		}
-		return Ok(updatedGame);
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Invalid for game update parameters");
+			throw;
+		}
 	}
 
 	[HttpDelete("{id}", Name = "DeleteGame")]
 	[Authorize]
 	public async Task<IActionResult> DeleteGame(int id)
 	{
-		bool result = await _service.DeleteGameAsync(id);
-		if (!result)
-		{
-			return NotFound();
-		}
-		return NoContent();
+		await _service.DeleteGameAsync(id);
+		return Ok(new { message = $"Game {id} successfully deleted" });
 	}
 }

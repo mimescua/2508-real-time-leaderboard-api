@@ -1,12 +1,12 @@
-using SafeProjectName.Models;
+using SafeProjectName.Models.DTOs;
 
 namespace SafeProjectName.Interfaces;
 
 public interface IGameService
 {
-	Task<Game> CreateGameAsync(Game user);
-	Task<IEnumerable<Game>> GetAllGamesAsync();
-	Task<Game?> GetGameByIdAsync(int id);
-	Task<Game?> UpdateGameAsync(int id, Game user);
-	Task<bool> DeleteGameAsync(int id);
+	Task CreateGameAsync(GameCreateRequest request);
+	Task<IEnumerable<GameResponse>> GetAllGamesAsync();
+	Task<GameResponse> GetGameByIdAsync(int id);
+	Task UpdateGameAsync(int id, GameUpdateRequest request);
+	Task DeleteGameAsync(int id);
 }

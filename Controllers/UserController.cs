@@ -1,9 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SafeProjectName.DataAccess;
 using SafeProjectName.Helpers;
 using SafeProjectName.Interfaces;
-using SafeProjectName.Models;
 using SafeProjectName.Models.DTOs;
 
 namespace SafeProjectName.Controllers;
@@ -21,12 +19,12 @@ public class UserController : ControllerBase
 		_service = service;
 	}
 
-	[HttpGet(Name = "GetAllUsers")]
+	[HttpGet("GetAllUsers", Name = "GetAllUsers")]
 	[Authorize]
 	public async Task<IActionResult> GetAllUsers()
 	{
-		var result = await _service.GetAllUsersAsync();
-		return Ok(result);
+		var users = await _service.GetAllUsersAsync();
+		return Ok(new { message = "Users retrieved successfully", data = users });
 	}
 
 	[HttpGet("{id}", Name = "GetUserById")]
@@ -34,83 +32,76 @@ public class UserController : ControllerBase
 	public async Task<IActionResult> GetUserById(int id)
 	{
 		var user = await _service.GetUserByIdAsync(id);
-		if (user == null)
-		{
-			return NotFound();
-		}
-		return Ok(user);
+		return Ok(new { message = $"User {id} retrieved successfully", data = user });
 	}
 
-	[HttpPost(Name = "CreateUser")]
+	[HttpPost("CreateUser", Name = "CreateUser")]
 	[Authorize]
-	public async Task<IActionResult> CreateUser([FromBody] UserCreateDto user)
+	public async Task<IActionResult> CreateUser([FromBody] UserCreateRequest user)
 	{
-		if (user == null)
+		try
 		{
-			return BadRequest("Required parameters cannot be null");
-		}
+			if (string.IsNullOrWhiteSpace(user.Username) || user.Username.Length < 3)
+			{
+				throw new BadHttpRequestException("Invalid Username", new Exception("Username must be at least 3 characters long"));
+			}
 
-		if (user.Username == null || user.Username.Length < 3)
+			if (Validations.IsValidEmail(user.Email) == false)
+			{
+				throw new BadHttpRequestException("Invalid Email Format", new Exception("The provided email format is not valid"));
+			}
+
+			if (string.IsNullOrWhiteSpace(user.Password) || user.Password.Length < 8)
+			{
+				throw new BadHttpRequestException("Invalid Password", new Exception("Password must be at least 8 characters or longer"));
+			}
+
+			await _service.CreateUserAsync(user);
+			return Ok(new { message = "User successfully created" });
+		}
+		catch (Exception ex)
 		{
-			return BadRequest("Username must be at least 3 characters long");
+			_logger.LogError(ex, "Invalid user creation parameters");
+			throw;
 		}
-
-		if (Validations.IsValidEmail(user.Email) == false)
-		{
-			return BadRequest("Invalid email format");
-		}
-
-		if (user.Password == null || user.Password.Length < 8)
-		{
-			return BadRequest("Password must be at least 8 characters or longer");
-		}
-
-		var createdUser = await _service.CreateUserAsync(user);
-
-		if (!createdUser.IsSuccess)
-		{
-			return BadRequest(createdUser.ErrorMessage);
-		}
-
-		return CreatedAtAction(nameof(GetUserById), new { id = createdUser.User!.UserId }, createdUser);
 	}
 
 	[HttpPut("{id}", Name = "UpdateUser")]
 	[Authorize]
-	public async Task<IActionResult> UpdateUser(int id, [FromBody] UserUpdateDto user)
+	public async Task<IActionResult> UpdateUser(int id, [FromBody] UserUpdateRequest user)
 	{
-		if (user == null)
+		try
 		{
-			return BadRequest("Required parameters cannot be null");
-		}
+			if (string.IsNullOrWhiteSpace(user.Username) && string.IsNullOrWhiteSpace(user.Email))
+			{
+				throw new BadHttpRequestException("Invalid parameters", new Exception("Username and Email cannot both be empty"));
+			}
 
-		if (user.Username == null || user.Username.Length < 3)
-		{
-			return BadRequest("Username must be at least 3 characters long");
-		}
+			if (!string.IsNullOrWhiteSpace(user.Username) && user.Username.Length < 3)
+			{
+				throw new BadHttpRequestException("Invalid Username", new Exception("Username must be at least 3 characters long"));
+			}
 
-		if (Validations.IsValidEmail(user.Email) == false)
-		{
-			return BadRequest("Invalid email format");
-		}
+			if (!string.IsNullOrWhiteSpace(user.Email) && Validations.IsValidEmail(user.Email) == false)
+			{
+				throw new BadHttpRequestException("Invalid Email Format", new Exception("The provided email format is not valid"));
+			}
 
-		var updatedUser = await _service.UpdateUserAsync(id, user);
-		if (updatedUser == null)
-		{
-			return NotFound();
+			await _service.UpdateUserAsync(id, user);
+			return Ok(new { message = $"User {id} successfully updated" });
 		}
-		return Ok(updatedUser);
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Invalid for user update parameters");
+			throw;
+		}
 	}
 
 	[HttpDelete("{id}", Name = "DeleteUser")]
 	[Authorize]
 	public async Task<IActionResult> DeleteUser(int id)
 	{
-		bool result = await _service.DeleteUserAsync(id);
-		if (!result)
-		{
-			return NotFound();
-		}
-		return NoContent();
+		await _service.DeleteUserAsync(id);
+		return Ok(new { message = $"User {id} successfully deleted" });
 	}
 }
