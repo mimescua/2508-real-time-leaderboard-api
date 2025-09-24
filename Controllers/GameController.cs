@@ -20,7 +20,7 @@ public class GameController : ControllerBase
 		_service = service;
 	}
 
-	[HttpGet("GetAllGames", Name = "GetAllGames")]
+	[HttpGet("All", Name = "GetAllGames")]
 	[Authorize]
 	public async Task<IActionResult> GetAllGames()
 	{
@@ -36,7 +36,7 @@ public class GameController : ControllerBase
 		return Ok(new { message = $"Game {id} retrieved successfully", data = game });
 	}
 
-	[HttpPost("CreateGame", Name = "CreateGame")]
+	[HttpPost("Create", Name = "CreateGame")]
 	[Authorize]
 	public async Task<IActionResult> CreateGame([FromBody] GameCreateRequest game)
 	{

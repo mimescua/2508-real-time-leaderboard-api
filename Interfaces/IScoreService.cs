@@ -1,8 +1,6 @@
-using SafeProjectName.Models.DTOs;
-
 namespace SafeProjectName.Interfaces;
 
 public interface IScoreService
 {
-	Task SubmitScoreAsync(ScoreRequest request);
+	Task SubmitScoreAsync(int gameId, int userId, int value);
 }

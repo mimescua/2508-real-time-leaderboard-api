@@ -1,4 +1,4 @@
-namespace SafeProjectName.Models;
+namespace SafeProjectName.Models.DTOs;
 
 public class ErrorResponse
 {

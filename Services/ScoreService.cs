@@ -2,50 +2,48 @@ using Microsoft.EntityFrameworkCore;
 using SafeProjectName.DataAccess;
 using SafeProjectName.Interfaces;
 using SafeProjectName.Models;
-using SafeProjectName.Models.DTOs;
 
 namespace SafeProjectName.Services;
+
 public class ScoreService : IScoreService
 {
 	private readonly LeaderBoardDbContext _dbcontext;
-	private readonly ILogger<GameService> _logger;
+	private readonly ILogger<ScoreService> _logger;
 
-	public ScoreService(LeaderBoardDbContext dbcontext, ILogger<GameService> logger)
+	public ScoreService(LeaderBoardDbContext dbcontext, ILogger<ScoreService> logger)
 	{
 		_dbcontext = dbcontext;
 		_logger = logger;
 	}
 
-	public async Task SubmitScoreAsync(ScoreRequest request)
+	public async Task SubmitScoreAsync(int gameId, int userId, int value)
 	{
 		try
 		{
-			var existingGame = await _dbcontext.games.FindAsync(request.GameId);
-			if (existingGame == null)
-			{
-				throw new KeyNotFoundException("No game found with the given ID");
-			}
-
-			var existingUser = await _dbcontext.users.FindAsync(request.UserId);
-			if (existingUser == null)
+			if (!await _dbcontext.users.AnyAsync(u => u.UserId == userId))
 			{
 				throw new KeyNotFoundException("No user found with the given ID");
 			}
 
-			var existingScore = await _dbcontext.scores.FirstOrDefaultAsync(score => score.GameId == request.GameId && score.UserId == request.UserId);
+			if (!await _dbcontext.games.AnyAsync(g => g.GameId == gameId))
+			{
+				throw new KeyNotFoundException("No game found with the given ID");
+			}
+
+			var existingScore = await _dbcontext.scores.FirstOrDefaultAsync(score => score.GameId == gameId && score.UserId == userId);
 			if (existingScore != null)
 			{
-				existingScore.Value += request.Value;
+				existingScore.Value += value;
 				existingScore.AchievedAt = DateTime.UtcNow;
 			}
 			else
 			{
 				var score = new Score
 				{
-					Value = request.Value,
+					Value = value,
 					AchievedAt = DateTime.UtcNow,
-					UserId = request.UserId,
-					GameId = request.GameId,
+					UserId = userId,
+					GameId = gameId,
 				};
 
 				_dbcontext.Add(score);

@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics;
-using SafeProjectName.Models;
+using SafeProjectName.Models.DTOs;
 
 namespace SafeProjectName.Middleware;
 

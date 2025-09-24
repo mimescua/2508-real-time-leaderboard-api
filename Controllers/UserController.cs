@@ -19,7 +19,7 @@ public class UserController : ControllerBase
 		_service = service;
 	}
 
-	[HttpGet("GetAllUsers", Name = "GetAllUsers")]
+	[HttpGet("All", Name = "GetAllUsers")]
 	[Authorize]
 	public async Task<IActionResult> GetAllUsers()
 	{
@@ -35,7 +35,7 @@ public class UserController : ControllerBase
 		return Ok(new { message = $"User {id} retrieved successfully", data = user });
 	}
 
-	[HttpPost("CreateUser", Name = "CreateUser")]
+	[HttpPost("Create", Name = "CreateUser")]
 	[Authorize]
 	public async Task<IActionResult> CreateUser([FromBody] UserCreateRequest user)
 	{

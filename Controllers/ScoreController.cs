@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SafeProjectName.Interfaces;
-using SafeProjectName.Models.DTOs;
 
 namespace SafeProjectName.Controllers;
 
@@ -19,19 +18,18 @@ public class ScoreController : ControllerBase
 		_service = service;
 	}
 
-	[HttpPut(Name = "SubmitScore")]
+	[HttpPut("Submit/Game/{gameId}/User/{userId}", Name = "SubmitScore")]
 	[Authorize]
-	public async Task<IActionResult> SubmitScore([FromBody] ScoreRequest score)
+	public async Task<IActionResult> SubmitScore(int gameId, int userId, int value)
 	{
-
 		try
 		{
-			if (score.Value <= 0)
+			if (value <= 0)
 			{
 				throw new BadHttpRequestException("Invalid Score Value", new Exception("Score value must be greater than zero"));
 			}
 
-			await _service.SubmitScoreAsync(score);
+			await _service.SubmitScoreAsync(gameId, userId, value);
 			return Ok(new { message = $"Score successfully submited" });
 		}
 		catch (Exception ex)
