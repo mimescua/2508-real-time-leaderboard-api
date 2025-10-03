@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using SafeProjectName.Constants;
 using SafeProjectName.DataAccess;
-using SafeProjectName.Helpers;
 using SafeProjectName.Interfaces;
 using SafeProjectName.Models.DTOs;
 
@@ -10,41 +10,53 @@ public class LeaderboardService : ILeaderboardService
 {
 	private readonly LeaderBoardDbContext _dbcontext;
 	private readonly ILogger<LeaderboardService> _logger;
+	private ICacheService _cacheservice;
 
-	public LeaderboardService(LeaderBoardDbContext dbcontext, ILogger<LeaderboardService> logger)
+	public LeaderboardService(LeaderBoardDbContext dbcontext, ILogger<LeaderboardService> logger, ICacheService cacheService)
 	{
 		_dbcontext = dbcontext;
 		_logger = logger;
+		_cacheservice = cacheService;
 	}
 
-	public async Task<PaginatedList<LeaderboardResponse>> GetGlobalTopScores(int pageIndex, int pageSize)
+	public async Task<PaginatedList<LeaderboardEntry>> GetGlobalTopScores(int pageIndex, int pageSize)
 	{
 		try
 		{
+			long sortedSetLength = await _cacheservice.CountSortedSetAsync($"{ScoreKeys.GlobalPrefix}");
+			int totalPages = sortedSetLength == 0 ? 0 : (int)Math.Ceiling(sortedSetLength / (double)pageSize);
+			if (sortedSetLength > 0)
+			{
+				var entries = await _cacheservice.GetSortedSetRangeAsync($"{ScoreKeys.GlobalPrefix}", pageIndex, pageSize);
+				var results = new List<LeaderboardEntry>();
+				for (int i = 0; i < entries.Length; i++)
+				{
+					results.Add(new LeaderboardEntry
+					(
+						member: entries[i].Element.ToString(),
+						score: entries[i].Score,
+						rank: i + 1
+					));
+				}
+				return new PaginatedList<LeaderboardEntry>(results, pageIndex, totalPages);
+			}
 			int totalScores = await _dbcontext.scores.CountAsync();
-			int totalPages = (int)Math.Ceiling(totalScores / (double)pageSize);
+			totalPages = (int)Math.Ceiling(totalScores / (double)pageSize);
 
 			var scores = await _dbcontext.scores
 				.Include(s => s.User)
-				.Include(s => s.Game)
 				.OrderByDescending(s => s.Value)
 				.Skip((pageIndex - 1) * pageSize)
 				.Take(pageSize)
 				.ToListAsync();
 
-			var rankingResponses = scores.Select(score => new LeaderboardResponse
-			{
-				ScoreId = score.ScoreId,
-				Value = score.Value,
-				UserId = score.User!.UserId,
-				Username = score.User.Username,
-				GameId = score.Game!.GameId,
-				Gametitle = score.Game.Title,
-				Genres = GameInfoMapper.GetGenreNames(score.Game.Genres),
-				AchievedAt = score.AchievedAt.ToString("yyyy-MM-dd HH:mm:ss"),
-			}).ToList();
+			var rankingResponses = scores.Select((score, index) => new LeaderboardEntry(
+				member: score.User!.Username,
+				score: score.Value,
+				rank: index + 1 + (pageIndex - 1) * pageSize
+			)).ToList();
 
-			return new PaginatedList<LeaderboardResponse>(rankingResponses, pageIndex, totalPages);
+			return new PaginatedList<LeaderboardEntry>(rankingResponses, pageIndex, totalPages);
 		}
 		catch (Exception ex)
 		{
@@ -53,7 +65,7 @@ public class LeaderboardService : ILeaderboardService
 		}
 	}
 
-	public async Task<PaginatedList<LeaderboardResponse>> GetGameTopScores(int gameId, int pageIndex, int pageSize)
+	public async Task<PaginatedList<LeaderboardEntry>> GetGameTopScores(int gameId, int pageIndex, int pageSize) // top x game
 	{
 		try
 		{
@@ -62,31 +74,41 @@ public class LeaderboardService : ILeaderboardService
 				throw new KeyNotFoundException("No game found with the given ID");
 			}
 
+			long sortedSetLength = await _cacheservice.CountSortedSetAsync($"{ScoreKeys.GamePrefix}{gameId}");
+			int totalPages = sortedSetLength == 0 ? 0 : (int)Math.Ceiling(sortedSetLength / (double)pageSize);
+			if (sortedSetLength > 0)
+			{
+				var entries = await _cacheservice.GetSortedSetRangeAsync($"{ScoreKeys.GamePrefix}{gameId}", pageIndex, pageSize);
+				var results = new List<LeaderboardEntry>();
+				for (int i = 0; i < entries.Length; i++)
+				{
+					results.Add(new LeaderboardEntry
+					(
+						member: entries[i].Element.ToString(),
+						score: entries[i].Score,
+						rank: i + 1
+					));
+				}
+				return new PaginatedList<LeaderboardEntry>(results, pageIndex, totalPages);
+			}
 			int totalScores = await _dbcontext.scores.CountAsync();
-			int totalPages = (int)Math.Ceiling(totalScores / (double)pageSize);
+			totalPages = (int)Math.Ceiling(totalScores / (double)pageSize);
 
 			var scores = await _dbcontext.scores
 				.Include(s => s.User)
-				.Include(s => s.Game)
 				.Where(s => s.GameId == gameId)
 				.OrderByDescending(s => s.Value)
 				.Skip((pageIndex - 1) * pageSize)
 				.Take(pageSize)
 				.ToListAsync();
 
-			var rankingResponses = scores.Select(score => new LeaderboardResponse
-			{
-				ScoreId = score.ScoreId,
-				Value = score.Value,
-				UserId = score.User!.UserId,
-				Username = score.User.Username,
-				GameId = score.Game!.GameId,
-				Gametitle = score.Game.Title,
-				Genres = GameInfoMapper.GetGenreNames(score.Game.Genres),
-				AchievedAt = score.AchievedAt.ToString("yyyy-MM-dd HH:mm:ss"),
-			}).ToList();
+			var rankingResponses = scores.Select((score, index) => new LeaderboardEntry(
+				member: score.User!.Username,
+				score: score.Value,
+				rank: index + 1 + (pageIndex - 1) * pageSize
+			)).ToList();
 
-			return new PaginatedList<LeaderboardResponse>(rankingResponses, pageIndex, totalPages);
+			return new PaginatedList<LeaderboardEntry>(rankingResponses, pageIndex, totalPages);
 		}
 		catch (Exception ex)
 		{
@@ -95,7 +117,7 @@ public class LeaderboardService : ILeaderboardService
 		}
 	}
 
-	public async Task<PaginatedList<RankingResponse>> GetGlobalUserRanking(int userId, int pageIndex, int pageSize)
+	public async Task<PaginatedList<LeaderboardEntry>> GetGlobalUserRanking(int userId, int pageIndex, int pageSize) // scores and position by user
 	{
 		try
 		{
@@ -104,19 +126,33 @@ public class LeaderboardService : ILeaderboardService
 				throw new KeyNotFoundException("No user found with the given ID");
 			}
 
-			int totalScores = await _dbcontext.scores.Where(score => score.UserId == userId).CountAsync();
-			int totalPages = (int)Math.Ceiling(totalScores / (double)pageSize);
+			long sortedSetLength = await _cacheservice.CountSortedSetAsync($"{ScoreKeys.UserPrefix}{userId}");
+			int totalPages = sortedSetLength == 0 ? 0 : (int)Math.Ceiling(sortedSetLength / (double)pageSize);
+			if (sortedSetLength > 0)
+			{
+				var entries = await _cacheservice.GetSortedSetRangeAsync($"{ScoreKeys.UserPrefix}{userId}", pageIndex, pageSize);
+				var results = new List<LeaderboardEntry>();
+				for (int i = 0; i < entries.Length; i++)
+				{
+					results.Add(new LeaderboardEntry
+					(
+						member: entries[i].Element.ToString(),
+						score: entries[i].Score,
+						rank: i + 1
+					));
+				}
+				return new PaginatedList<LeaderboardEntry>(results, pageIndex, totalPages);
+			}
+			int totalScores = await _dbcontext.scores.CountAsync();
+			totalPages = (int)Math.Ceiling(totalScores / (double)pageSize);
 
 			var scores = await _dbcontext.scores
-				.Include(s => s.Game)
+				.Include(s => s.User)
 				.Where(s => s.UserId == userId)
 				.Select(s => new
 				{
-					s.ScoreId,
-					s.UserId,
 					s.Value,
-					s.Game,
-					s.AchievedAt,
+					s.User,
 					Rank = 1 + _dbcontext.scores.Count(x => x.Value > s.Value)
 				})
 				.OrderBy(s => s.Rank)
@@ -124,19 +160,13 @@ public class LeaderboardService : ILeaderboardService
 				.Take(pageSize)
 				.ToListAsync();
 
+			var rankingResponses = scores.Select((score, index) => new LeaderboardEntry(
+				member: score.User!.Username,
+				score: score.Value,
+				rank: score.Rank
+			)).ToList();
 
-			var rankingResponses = scores.Select(score => new RankingResponse
-			{
-				ScoreId = score.ScoreId,
-				Value = score.Value,
-				Rank = score.Rank,
-				GameId = score.Game!.GameId,
-				Gametitle = score.Game.Title,
-				Genres = GameInfoMapper.GetGenreNames(score.Game.Genres),
-				AchievedAt = score.AchievedAt.ToString("yyyy-MM-dd HH:mm:ss"),
-			}).ToList();
-
-			return new PaginatedList<RankingResponse>(rankingResponses, pageIndex, totalPages);
+			return new PaginatedList<LeaderboardEntry>(rankingResponses, pageIndex, totalPages);
 		}
 		catch (Exception ex)
 		{
@@ -145,11 +175,12 @@ public class LeaderboardService : ILeaderboardService
 		}
 	}
 
-	public async Task<RankingResponse> GetGameUserRanking(int userId, int gameId)
+	public async Task<LeaderboardEntry> GetGameUserRanking(int userId, int gameId) // single score and position by user and game
 	{
 		try
 		{
-			if (!await _dbcontext.users.AnyAsync(u => u.UserId == userId))
+			var user = await _dbcontext.users.FindAsync(userId);
+			if (user == null)
 			{
 				throw new KeyNotFoundException("No user found with the given ID");
 			}
@@ -159,32 +190,39 @@ public class LeaderboardService : ILeaderboardService
 				throw new KeyNotFoundException("No game found with the given ID");
 			}
 
-			var scores = await _dbcontext.scores
-				.Include(s => s.Game)
+			var (score, rank) = await _cacheservice.GetSingleSortedSetAsync($"{ScoreKeys.GamePrefix}{gameId}", $"{user.Username}");
+			if (score != null && rank != null)
+			{
+				return new LeaderboardEntry
+				(
+					member: user.Username,
+					score: score.Value,
+					rank: 1 + rank.Value
+				);
+			}
+
+			var result = await _dbcontext.scores
+				.Include(s => s.User)
 				.Where(s => s.UserId == userId && s.GameId == gameId)
+				.OrderByDescending(s => s.Value)
 				.Select(s => new
 				{
-					s.ScoreId,
-					s.UserId,
 					s.Value,
-					s.Game,
-					s.AchievedAt,
-					Rank = 1 + _dbcontext.scores.Count(x => x.Value > s.Value)
+					s.User,
+					Rank = 1 + _dbcontext.scores.Count(x => x.Value > s.Value && x.GameId == gameId)
 				})
 				.FirstOrDefaultAsync();
 
-			var rankingResponses = new RankingResponse
+			if (result == null)
 			{
-				ScoreId = scores!.ScoreId,
-				Value = scores.Value,
-				Rank = scores.Rank,
-				GameId = scores.Game!.GameId,
-				Gametitle = scores.Game.Title,
-				Genres = GameInfoMapper.GetGenreNames(scores.Game.Genres),
-				AchievedAt = scores.AchievedAt.ToString("yyyy-MM-dd HH:mm:ss"),
-			};
-
-			return rankingResponses;
+				throw new KeyNotFoundException("No score found for the given user and game");
+			}
+			return new LeaderboardEntry
+			(
+				member: result.User!.Username,
+				score: result.Value,
+				rank: result.Rank
+			);
 		}
 		catch (Exception ex)
 		{

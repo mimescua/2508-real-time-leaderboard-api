@@ -62,7 +62,7 @@ public class HistoricalService : IHistoricalService
 		}
 	}
 
-	public async Task<PaginatedList<LeaderboardResponse>> GetHistoricalScores(DateTime from, DateTime to, int pageIndex, int pageSize)
+	public async Task<PaginatedList<HistoricalScoreResponse>> GetHistoricalScores(DateTime from, DateTime to, int pageIndex, int pageSize)
 	{
 		try
 		{
@@ -85,7 +85,7 @@ public class HistoricalService : IHistoricalService
 			var rankingResponses = scores.Select(score =>
 			{
 				var (_score, _user, _game) = (score.Score, score.User, score.Game);
-				return new LeaderboardResponse
+				return new HistoricalScoreResponse
 				{
 					ScoreId = _score.ScoreId,
 					Value = _score.Value,
@@ -98,7 +98,7 @@ public class HistoricalService : IHistoricalService
 				};
 			}).ToList();
 
-			return new PaginatedList<LeaderboardResponse>(rankingResponses, pageIndex, totalPages);
+			return new PaginatedList<HistoricalScoreResponse>(rankingResponses, pageIndex, totalPages);
 		}
 		catch (Exception ex)
 		{

@@ -1,5 +1,5 @@
 namespace SafeProjectName.Models.DTOs;
-public class LeaderboardResponse
+public class HistoricalScoreResponse
 {
 	public required int ScoreId { get; set; }
 	public required int Value { get; set; }
